@@ -1,7 +1,13 @@
-import java.io.*;
-import java.net.*;
-import java.util.*;
-import java.util.concurrent.*;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.ServerSocket;
+import java.net.Socket;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class Switch {
     private final Map<byte[], Integer> macTable = new HashMap<>();
@@ -14,7 +20,6 @@ public class Switch {
         this.frameSize = frameSize;
     }
 
-
     public void start(int port) throws IOException {
         ServerSocket serverSocket = new ServerSocket(port);
         System.out.println("Switch escutando na porta " + port);
@@ -23,7 +28,6 @@ public class Switch {
             Socket socket = serverSocket.accept();
             int portNumber = nextPort++;
             portSockets.put(portNumber, socket);
-
             pool.submit(() -> handleDevice(socket, portNumber));
         }
     }
@@ -34,7 +38,6 @@ public class Switch {
             while (true) {
                 byte[] buffer = new byte[frameSize];
                 int bytesRead = in.read(buffer);
-
                 if (bytesRead == -1) break;
 
                 byte[] receivedFrame = Arrays.copyOf(buffer, bytesRead);
@@ -46,12 +49,9 @@ public class Switch {
         }
     }
 
-
     private Integer getPortByMac(byte[] mac) {
         for (Map.Entry<byte[], Integer> entry : macTable.entrySet()) {
-            if (Arrays.equals(entry.getKey(), mac)) {
-                return entry.getValue();
-            }
+            if (Arrays.equals(entry.getKey(), mac)) return entry.getValue();
         }
         return null;
     }
@@ -64,9 +64,7 @@ public class Switch {
                 break;
             }
         }
-        if (keyToRemove != null) {
-            macTable.remove(keyToRemove);
-        }
+        if (keyToRemove != null) macTable.remove(keyToRemove);
         macTable.put(mac, port);
     }
 
@@ -76,22 +74,22 @@ public class Switch {
 
         putMac(sourceMac, sourcePort);
 
+        FrameDTO realFrame = NoiseSimulator.apply(frame, 0.1);
+
         Integer destPort = getPortByMac(destMac);
         if (destPort != null && portSockets.containsKey(destPort)) {
-            //unicast
             try {
-                ObjectOutputStream out = new ObjectOutputStream(portSockets.get(destPort).getOutputStream());
-                out.writeObject(frame);
+                //unicast
+                portSockets.get(destPort).getOutputStream().write(FrameOperations.serialize(realFrame));
             } catch (IOException e) {
                 System.err.println("Erro ao enviar frame para porta " + destPort);
             }
         } else {
-            //broadcast
             for (Map.Entry<Integer, Socket> entry : portSockets.entrySet()) {
                 if (entry.getKey() != sourcePort) {
                     try {
-                        ObjectOutputStream out = new ObjectOutputStream(entry.getValue().getOutputStream());
-                        out.writeObject(frame);
+                        //broadcast
+                        entry.getValue().getOutputStream().write(FrameOperations.serialize(realFrame));
                     } catch (IOException e) {
                         System.err.println("Erro ao fazer broadcast para porta " + entry.getKey());
                     }
