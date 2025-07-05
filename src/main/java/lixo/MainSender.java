@@ -1,3 +1,5 @@
+package lixo;
+
 import java.io.IOException;
 
 public class MainSender {

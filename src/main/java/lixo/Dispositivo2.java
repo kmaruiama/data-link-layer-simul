@@ -1,3 +1,5 @@
+package lixo;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -11,12 +13,10 @@ public class Dispositivo2 {
         BufferedReader in = new BufferedReader(new InputStreamReader(socket.getInputStream()));
         PrintWriter out = new PrintWriter(socket.getOutputStream(), true);
 
-// Escuta mensagem
         String mensagem = in.readLine();
-        System.out.println("Servidor disse: " + mensagem);
+        System.out.println("servidor disse: " + mensagem);
 
-// Envia resposta
-        out.println("Oi servidor, recebi sua mensagem!");
+        out.println("oi servidor, recebi sua mensagem");
     }
 
 }
