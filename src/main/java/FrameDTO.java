@@ -6,6 +6,7 @@ public class FrameDTO {
     private byte[] macDestination = new byte[6];
     private byte[] macSource = new byte[6];
     private byte[] etherType = new byte[2];
+    private byte frameType;
     private byte[] payload;
     private byte[] frameCheckSequence = new byte [4];
 
@@ -47,6 +48,14 @@ public class FrameDTO {
 
     public void setEtherType(byte[] etherType) {
         this.etherType = etherType;
+    }
+
+    public byte getFrameType() {
+        return frameType;
+    }
+
+    public void setFrameType(byte frameType) {
+        this.frameType = frameType;
     }
 
     public byte[] getPayload() {

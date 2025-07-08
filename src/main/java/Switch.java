@@ -3,18 +3,19 @@ import java.io.InputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
 public class Switch {
-    private final Map<byte[], Integer> macTable = new HashMap<>();
+    private final Map<byte[], Integer> macTable = new ConcurrentHashMap<>();
     private final Map<Integer, Socket> portSockets = new ConcurrentHashMap<>();
     private final ExecutorService pool = Executors.newCachedThreadPool();
     private int nextPort = 1;
     private final int frameSize;
+
+    public static final int MAX_FRAME_BUFFER_SIZE = 1518;
 
     public Switch(int frameSize) {
         this.frameSize = frameSize;
@@ -36,13 +37,17 @@ public class Switch {
         try {
             InputStream in = socket.getInputStream();
             while (true) {
-                byte[] buffer = new byte[frameSize];
+                byte[] buffer = new byte[MAX_FRAME_BUFFER_SIZE];
                 int bytesRead = in.read(buffer);
                 if (bytesRead == -1) break;
 
                 byte[] receivedFrame = Arrays.copyOf(buffer, bytesRead);
                 FrameDTO frame = FrameOperations.deserialize(receivedFrame);
-                receiveFrame(frame, portNumber);
+                if (frame != null) {
+                    receiveFrame(frame, portNumber);
+                } else {
+                    System.err.println("Quadro corrompido ou inválido recebido na porta " + portNumber);
+                }
             }
         } catch (IOException e) {
             System.out.println("Conexão encerrada na porta " + portNumber);
@@ -65,6 +70,7 @@ public class Switch {
             }
         }
         if (keyToRemove != null) macTable.remove(keyToRemove);
+
         macTable.put(mac, port);
     }
 
@@ -79,7 +85,6 @@ public class Switch {
         Integer destPort = getPortByMac(destMac);
         if (destPort != null && portSockets.containsKey(destPort)) {
             try {
-                //unicast
                 portSockets.get(destPort).getOutputStream().write(FrameOperations.serialize(realFrame));
             } catch (IOException e) {
                 System.err.println("Erro ao enviar frame para porta " + destPort);
@@ -88,7 +93,6 @@ public class Switch {
             for (Map.Entry<Integer, Socket> entry : portSockets.entrySet()) {
                 if (entry.getKey() != sourcePort) {
                     try {
-                        //broadcast
                         entry.getValue().getOutputStream().write(FrameOperations.serialize(realFrame));
                     } catch (IOException e) {
                         System.err.println("Erro ao fazer broadcast para porta " + entry.getKey());

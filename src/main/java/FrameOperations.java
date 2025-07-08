@@ -1,23 +1,26 @@
+import java.util.Arrays;
+
 public class FrameOperations {
+
     public static byte[] serialize(FrameDTO frameDTO){
-        //calculamos o tamanho total do frame
-        int totalFrameSizeInBytes = frameDTO.getStartFrameDelimiter().length +
-                frameDTO.getFrameCheckSequence().length +
-                frameDTO.getEtherType().length +
+        int totalFrameSizeInBytes = frameDTO.getPreamble().length +
+                frameDTO.getStartFrameDelimiter().length +
                 frameDTO.getMacDestination().length +
                 frameDTO.getMacSource().length +
-                frameDTO.getPreamble().length +
-                frameDTO.getPayload().length;
-        //declaramos
+                frameDTO.getEtherType().length +
+                1 + // frameType
+                frameDTO.getPayload().length +
+                frameDTO.getFrameCheckSequence().length;
+
         byte[] frame = new byte[totalFrameSizeInBytes];
 
         int frameIndex = 0;
-        //juntamos o conteudo em um unico array
         frameIndex = copyBytes(frameDTO.getPreamble(), frame, frameIndex);
         frameIndex = copyBytes(frameDTO.getStartFrameDelimiter(), frame, frameIndex);
         frameIndex = copyBytes(frameDTO.getMacDestination(), frame, frameIndex);
         frameIndex = copyBytes(frameDTO.getMacSource(), frame, frameIndex);
         frameIndex = copyBytes(frameDTO.getEtherType(), frame, frameIndex);
+        frame[frameIndex++] = frameDTO.getFrameType();
         frameIndex = copyBytes(frameDTO.getPayload(), frame, frameIndex);
         copyBytes(frameDTO.getFrameCheckSequence(), frame, frameIndex);
 
@@ -34,8 +37,14 @@ public class FrameOperations {
 
     public static FrameDTO deserialize(byte[] frame){
         FrameDTO frameDto = new FrameDTO();
-
         int index = 0;
+
+        int minFrameHeaderAndFCSTotalSize = 7 + 1 + 6 + 6 + 2 + 1 + 4;
+
+        if (frame.length < minFrameHeaderAndFCSTotalSize) {
+            System.err.println("Erro de desserialização: Quadro recebido é muito pequeno. Tamanho: " + frame.length);
+            return null;
+        }
 
         byte[] preamble = new byte[7];
         System.arraycopy(frame, index, preamble, 0, 7);
@@ -62,7 +71,16 @@ public class FrameOperations {
         frameDto.setEtherType(etherType);
         index += 2;
 
+        frameDto.setFrameType(frame[index]);
+        index += 1;
+
         int payloadLength = frame.length - index - 4;
+
+        if (payloadLength < 0 || (index + payloadLength + 4) > frame.length) {
+            System.err.println("Erro de desserialização: PayloadLength inválido. Tamanho do frame: " + frame.length + ", Index: " + index + ", PayloadLength calculado: " + payloadLength);
+            return null;
+        }
+
         byte[] payload = new byte[payloadLength];
         System.arraycopy(frame, index, payload, 0, payloadLength);
         frameDto.setPayload(payload);
@@ -76,12 +94,12 @@ public class FrameOperations {
     }
 
     public static byte[] getFrameToSendToCRC(FrameDTO frameDTO) {
-        int totalFrameSizeInBytes = frameDTO.getStartFrameDelimiter().length +
-                frameDTO.getFrameCheckSequence().length +
-                frameDTO.getEtherType().length +
+        int totalFrameSizeInBytes = frameDTO.getPreamble().length +
+                frameDTO.getStartFrameDelimiter().length +
                 frameDTO.getMacDestination().length +
                 frameDTO.getMacSource().length +
-                frameDTO.getPreamble().length +
+                frameDTO.getEtherType().length +
+                1 + // frameType
                 frameDTO.getPayload().length;
 
         byte[] frame = new byte[totalFrameSizeInBytes];
@@ -92,6 +110,7 @@ public class FrameOperations {
         frameIndex = copyBytes(frameDTO.getMacDestination(), frame, frameIndex);
         frameIndex = copyBytes(frameDTO.getMacSource(), frame, frameIndex);
         frameIndex = copyBytes(frameDTO.getEtherType(), frame, frameIndex);
+        frame[frameIndex++] = frameDTO.getFrameType();
         copyBytes(frameDTO.getPayload(), frame, frameIndex);
         return frame;
     }

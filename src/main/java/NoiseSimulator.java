@@ -6,19 +6,22 @@ public class NoiseSimulator {
 
     public static FrameDTO apply(FrameDTO original, double errorChance) {
         if (random.nextDouble() > errorChance) {
-            return original;//não altera
+            return original;
         }
 
         FrameDTO corrupted = new FrameDTO();
+        corrupted.setPreamble(original.getPreamble());
+        corrupted.setStartFrameDelimiter(original.getStartFrameDelimiter());
         corrupted.setMacDestination(original.getMacDestination());
         corrupted.setMacSource(original.getMacSource());
         corrupted.setEtherType(original.getEtherType());
-        corrupted.setPreamble(original.getPreamble());
-        corrupted.setStartFrameDelimiter(original.getStartFrameDelimiter());
+        corrupted.setFrameType(original.getFrameType());
 
         byte[] payload = Arrays.copyOf(original.getPayload(), original.getPayload().length);
-        int index = random.nextInt(payload.length); //escolhe um bit e muda
-        payload[index] ^= 0x01;
+        if (payload.length > 0) {
+            int index = random.nextInt(payload.length);
+            payload[index] ^= (byte) (1 << random.nextInt(8));
+        }
         corrupted.setPayload(payload);
 
         corrupted.setFrameCheckSequence(original.getFrameCheckSequence());
